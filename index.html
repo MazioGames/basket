@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Basket Mobile - Jump & Score - Phaser 3</title>
+  <title>Basket Mobile - Canestro & Difesa IA - Phaser 3</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
   <style>
     * {
@@ -39,10 +39,16 @@ class BasketballMobileGame extends Phaser.Scene {
   createGraphicAssets() {
     let g = this.add.graphics();
 
-    // Giocatore (Azzurro)
+    // Giocatore Attaccante (Azzurro)
     g.fillStyle(0x3498db, 1);
     g.fillRect(0, 0, 32, 64);
     g.generateTexture('player', 32, 64);
+    g.clear();
+
+    // Difensore IA (Rosso)
+    g.fillStyle(0xe74c3c, 1);
+    g.fillRect(0, 0, 32, 64);
+    g.generateTexture('defender', 32, 64);
     g.clear();
 
     // Pallone (Arancione)
@@ -51,12 +57,20 @@ class BasketballMobileGame extends Phaser.Scene {
     g.generateTexture('ball', 24, 24);
     g.clear();
 
-    // Tabellone e Anello
-    g.fillStyle(0xffffff, 1);
-    g.fillRect(0, 0, 8, 120); // Tabellone
-    g.fillStyle(0xe74c3c, 1);
-    g.fillRect(-25, 40, 25, 6); // Anello
-    g.generateTexture('hoop', 33, 120);
+    // Struttura Canestro Visibile (Tabellone + Anello + Retina)
+    g.fillStyle(0xffffff, 0.9);
+    g.fillRect(25, 0, 8, 90); // Tabellone bianco
+    g.fillStyle(0xe67e22, 1);
+    g.fillRect(0, 45, 25, 6);  // Anello arancione
+    g.fillStyle(0xffffff, 0.5);
+    g.beginPath();
+    g.moveTo(2, 51);
+    g.lineTo(7, 75);
+    g.lineTo(18, 75);
+    g.lineTo(23, 51);
+    g.closePath();
+    g.fillPath(); // Retina trasparente
+    g.generateTexture('hoop_structure', 35, 90);
     g.clear();
 
     // Controlli Touch
@@ -65,12 +79,12 @@ class BasketballMobileGame extends Phaser.Scene {
     g.generateTexture('btn_arrow', 60, 60);
     g.clear();
 
-    g.fillStyle(0xe74c3c, 0.6);
+    g.fillStyle(0x2ecc71, 0.7);
     g.fillCircle(40, 40, 40);
     g.generateTexture('btn_shoot', 80, 80);
     g.clear();
 
-    g.fillStyle(0xf1c40f, 0.6);
+    g.fillStyle(0xf1c40f, 0.7);
     g.fillCircle(25, 25, 25);
     g.generateTexture('btn_reset', 50, 50);
     g.destroy();
@@ -83,21 +97,29 @@ class BasketballMobileGame extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, 800, 450);
     this.physics.world.gravity.y = 800;
 
-    // Campo da gioco
+    // Campo da gioco (Pavimento)
     this.ground = this.add.rectangle(400, 440, 800, 20, 0x7f8c8d);
     this.physics.add.existing(this.ground, true);
 
-    // Canestro e Zona Sensore Punti
-    this.hoop = this.physics.add.staticImage(750, 220, 'hoop');
+    // Struttura Asta Canestro
+    const pole = this.add.rectangle(725, 300, 10, 260, 0x333333);
+
+    // Canestro Visibile (Spostato a X: 690 per massima visibilità)
+    this.hoop = this.physics.add.staticImage(690, 220, 'hoop_structure');
     
-    // Zona di rilevamento canestro (posizionata poco sotto il cerchio del canestro)
-    this.scoreZone = this.add.zone(735, 265, 22, 5);
+    // Zona di rilevamento canestro (posizionata esattamente sotto l'anello)
+    this.scoreZone = this.add.zone(678, 268, 20, 5);
     this.physics.add.existing(this.scoreZone, true);
 
-    // Giocatore
+    // Giocatore Attaccante
     this.player = this.physics.add.sprite(150, 350, 'player');
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.ground);
+
+    // Difensore IA
+    this.defender = this.physics.add.sprite(500, 350, 'defender');
+    this.defender.setCollideWorldBounds(true);
+    this.physics.add.collider(this.defender, this.ground);
 
     // Pallone
     this.ball = this.physics.add.sprite(150, 330, 'ball');
@@ -107,13 +129,16 @@ class BasketballMobileGame extends Phaser.Scene {
     this.physics.add.collider(this.ball, this.ground);
     this.physics.add.collider(this.ball, this.hoop);
 
+    // Collisione Pallone - Difensore (Possibilità di Stoppata)
+    this.physics.add.collider(this.ball, this.defender, this.onBallBlocked, null, this);
+
     // Stato Tiro e Gioco
     this.isHoldingBall = true;
     this.isCharging = false;
     this.chargePower = 0;
-    this.maxPower = 700;
-    this.minPower = 200;
-    this.canScore = true; // Impedisce di contare più punti sullo stesso tiro
+    this.maxPower = 720;
+    this.minPower = 220;
+    this.canScore = true;
 
     // Grafica Traiettoria
     this.trajectoryGraphics = this.add.graphics();
@@ -121,17 +146,14 @@ class BasketballMobileGame extends Phaser.Scene {
     // Interfaccia Utente (UI)
     this.score = 0;
     this.scoreText = this.add.text(20, 15, 'Punti: 0', { fontSize: '22px', fill: '#fff', fontStyle: 'bold' });
-
-    // Notifica Canestro
     this.feedbackText = this.add.text(400, 180, '', { fontSize: '32px', fill: '#f1c40f', fontStyle: 'bold' }).setOrigin(0.5);
 
-    // Overlap per rilevare il punto
+    // Overlap per Canestro
     this.physics.add.overlap(this.ball, this.scoreZone, this.onScore, null, this);
 
-    // Movimento Touch
+    // Controlli Touch
     this.moveLeft = false;
     this.moveRight = false;
-
     this.createTouchControls();
   }
 
@@ -161,9 +183,9 @@ class BasketballMobileGame extends Phaser.Scene {
         this.isCharging = true;
         this.chargePower = this.minPower;
 
-        // --- SALTO DEL GIOCATORE DURANTE IL TIRO ---
+        // Salto del giocatore durante la rincorsa/caricamento
         if (this.player.body.touching.down) {
-          this.player.setVelocityY(-250); // Piccolo salto verso l'alto
+          this.player.setVelocityY(-250);
         }
       }
     });
@@ -184,7 +206,7 @@ class BasketballMobileGame extends Phaser.Scene {
   }
 
   update() {
-    // Movimento Orizzontale Giocatore
+    // Movimento Giocatore
     if (!this.isCharging) {
       if (this.moveLeft) {
         this.player.setVelocityX(-160);
@@ -197,7 +219,10 @@ class BasketballMobileGame extends Phaser.Scene {
       this.player.setVelocityX(0);
     }
 
-    // Palla attaccata alle mani del giocatore
+    // --- LOGICA DIFENSORE IA ---
+    this.updateDefenderAI();
+
+    // Palla in mano al giocatore
     if (this.isHoldingBall) {
       this.ball.setPosition(this.player.x + 15, this.player.y - 10);
       this.ball.body.setVelocity(0, 0);
@@ -210,20 +235,38 @@ class BasketballMobileGame extends Phaser.Scene {
     }
   }
 
+  updateDefenderAI() {
+    // Mantiene una posizione difensiva tra l'attaccante e il canestro
+    const targetX = Phaser.Math.Clamp(this.player.x + 120, 350, 630);
+    const distanceToTarget = targetX - this.defender.x;
+
+    if (Math.abs(distanceToTarget) > 10) {
+      this.defender.setVelocityX(distanceToTarget * 2);
+    } else {
+      this.defender.setVelocityX(0);
+    }
+
+    // Salto di stoppata dell'IA se l'attaccante sta caricando il tiro vicino
+    const distanceToPlayer = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.defender.x, this.defender.y);
+    if (this.isCharging && distanceToPlayer < 180 && this.defender.body.touching.down) {
+      this.defender.setVelocityY(-350); // Salto di contestazione del tiro
+    }
+  }
+
   drawTrajectory() {
     this.trajectoryGraphics.clear();
     this.trajectoryGraphics.lineStyle(2, 0x00ff00, 0.8);
 
     const startX = this.ball.x;
     const startY = this.ball.y;
-    const vx = this.chargePower * 0.75;
+    const vx = this.chargePower * 0.72;
     const vy = -this.chargePower * 0.95;
     const gravity = this.physics.world.gravity.y;
 
     let prevX = startX;
     let prevY = startY;
 
-    for (let t = 0.05; t < 1.2; t += 0.05) {
+    for (let t = 0.05; t < 1.1; t += 0.05) {
       const x = startX + vx * t;
       const y = startY + vy * t + 0.5 * gravity * t * t;
       this.trajectoryGraphics.lineBetween(prevX, prevY, x, y);
@@ -235,11 +278,11 @@ class BasketballMobileGame extends Phaser.Scene {
   shootBall() {
     this.isHoldingBall = false;
     this.isCharging = false;
-    this.canScore = true; // Abilita il conteggio punti per questo tiro
+    this.canScore = true;
     this.trajectoryGraphics.clear();
 
     this.ball.body.setAllowGravity(true);
-    const vx = this.chargePower * 0.75;
+    const vx = this.chargePower * 0.72;
     const vy = -this.chargePower * 0.95;
 
     this.ball.setVelocity(vx, vy);
@@ -254,30 +297,38 @@ class BasketballMobileGame extends Phaser.Scene {
     this.ball.setAngularVelocity(0);
   }
 
+  onBallBlocked() {
+    if (!this.isHoldingBall && this.canScore) {
+      this.canScore = false;
+      this.showFeedback('STOPPATA!', '#e74c3c');
+    }
+  }
+
   onScore(ball, zone) {
-    // Rileva il canestro solo se la palla sta scendendo (velocità Y > 0) e non è già stato contato
     if (!this.isHoldingBall && this.canScore && ball.body.velocity.y > 0) {
       this.score += 2;
-      this.canScore = false; // Evita doppi punti
+      this.canScore = false;
       this.scoreText.setText('Punti: ' + this.score);
-
-      // Feedback visivo a schermo
-      this.feedbackText.setText('CANESTRO! +2');
-      this.feedbackText.setScale(1);
-      this.feedbackText.setAlpha(1);
-
-      // Animazione testo di feedback
-      this.tweens.add({
-        targets: this.feedbackText,
-        y: 140,
-        alpha: 0,
-        duration: 1200,
-        ease: 'Power2',
-        onComplete: () => {
-          this.feedbackText.setPosition(400, 180);
-        }
-      });
+      this.showFeedback('CANESTRO! +2', '#f1c40f');
     }
+  }
+
+  showFeedback(text, color) {
+    this.feedbackText.setText(text);
+    this.feedbackText.setStyle({ fill: color });
+    this.feedbackText.setScale(1);
+    this.feedbackText.setAlpha(1);
+
+    this.tweens.add({
+      targets: this.feedbackText,
+      y: 140,
+      alpha: 0,
+      duration: 1200,
+      ease: 'Power2',
+      onComplete: () => {
+        this.feedbackText.setPosition(400, 180);
+      }
+    });
   }
 }
 
