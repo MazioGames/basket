@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Basket Mobile - Phaser 3</title>
+  <title>Basket Mobile - Jump & Score - Phaser 3</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
   <style>
     * {
@@ -53,25 +53,23 @@ class BasketballMobileGame extends Phaser.Scene {
 
     // Tabellone e Anello
     g.fillStyle(0xffffff, 1);
-    g.fillRect(0, 0, 8, 120);
+    g.fillRect(0, 0, 8, 120); // Tabellone
     g.fillStyle(0xe74c3c, 1);
-    g.fillRect(-25, 40, 25, 6);
+    g.fillRect(-25, 40, 25, 6); // Anello
     g.generateTexture('hoop', 33, 120);
     g.clear();
 
-    // Pulsante D-Pad (Sinistra/Destra)
+    // Controlli Touch
     g.fillStyle(0xffffff, 0.3);
     g.fillCircle(30, 30, 30);
     g.generateTexture('btn_arrow', 60, 60);
     g.clear();
 
-    // Pulsante Tiro
     g.fillStyle(0xe74c3c, 0.6);
     g.fillCircle(40, 40, 40);
     g.generateTexture('btn_shoot', 80, 80);
     g.clear();
 
-    // Pulsante Reset
     g.fillStyle(0xf1c40f, 0.6);
     g.fillCircle(25, 25, 25);
     g.generateTexture('btn_reset', 50, 50);
@@ -79,7 +77,6 @@ class BasketballMobileGame extends Phaser.Scene {
   }
 
   create() {
-    // Abilita multi-touch
     this.input.addPointer(2);
 
     // Mondo e Fisica
@@ -87,53 +84,59 @@ class BasketballMobileGame extends Phaser.Scene {
     this.physics.world.gravity.y = 800;
 
     // Campo da gioco
-    const ground = this.add.rectangle(400, 440, 800, 20, 0x7f8c8d);
-    this.physics.add.existing(ground, true);
+    this.ground = this.add.rectangle(400, 440, 800, 20, 0x7f8c8d);
+    this.physics.add.existing(this.ground, true);
 
-    // Canestro e Zona Punti
+    // Canestro e Zona Sensore Punti
     this.hoop = this.physics.add.staticImage(750, 220, 'hoop');
-    this.scoreZone = this.add.zone(735, 265, 20, 5);
+    
+    // Zona di rilevamento canestro (posizionata poco sotto il cerchio del canestro)
+    this.scoreZone = this.add.zone(735, 265, 22, 5);
     this.physics.add.existing(this.scoreZone, true);
 
     // Giocatore
     this.player = this.physics.add.sprite(150, 350, 'player');
     this.player.setCollideWorldBounds(true);
-    this.physics.add.collider(this.player, ground);
+    this.physics.add.collider(this.player, this.ground);
 
     // Pallone
     this.ball = this.physics.add.sprite(150, 330, 'ball');
     this.ball.setBounce(0.6);
     this.ball.setFriction(0.1);
     this.ball.setCollideWorldBounds(true);
-    this.physics.add.collider(this.ball, ground);
+    this.physics.add.collider(this.ball, this.ground);
     this.physics.add.collider(this.ball, this.hoop);
 
-    // Stato Tiro
+    // Stato Tiro e Gioco
     this.isHoldingBall = true;
     this.isCharging = false;
     this.chargePower = 0;
     this.maxPower = 700;
     this.minPower = 200;
+    this.canScore = true; // Impedisce di contare più punti sullo stesso tiro
 
-    // Traiettoria
+    // Grafica Traiettoria
     this.trajectoryGraphics = this.add.graphics();
 
-    // Punteggio
+    // Interfaccia Utente (UI)
     this.score = 0;
-    this.scoreText = this.add.text(20, 15, 'Punti: 0', { fontSize: '20px', fill: '#fff', fontStyle: 'bold' });
+    this.scoreText = this.add.text(20, 15, 'Punti: 0', { fontSize: '22px', fill: '#fff', fontStyle: 'bold' });
 
+    // Notifica Canestro
+    this.feedbackText = this.add.text(400, 180, '', { fontSize: '32px', fill: '#f1c40f', fontStyle: 'bold' }).setOrigin(0.5);
+
+    // Overlap per rilevare il punto
     this.physics.add.overlap(this.ball, this.scoreZone, this.onScore, null, this);
 
-    // Variabili stato movimento Touch
+    // Movimento Touch
     this.moveLeft = false;
     this.moveRight = false;
 
-    // Aggiunta Controlli Touch a Schermo
     this.createTouchControls();
   }
 
   createTouchControls() {
-    // 1. Freccia Sinistra
+    // Tasto Sinistra
     const btnLeft = this.add.image(60, 390, 'btn_arrow').setInteractive();
     this.add.text(52, 380, '◄', { fontSize: '22px', fill: '#fff' });
 
@@ -141,7 +144,7 @@ class BasketballMobileGame extends Phaser.Scene {
     btnLeft.on('pointerup', () => { this.moveLeft = false; });
     btnLeft.on('pointerout', () => { this.moveLeft = false; });
 
-    // 2. Freccia Destra
+    // Tasto Destra
     const btnRight = this.add.image(140, 390, 'btn_arrow').setInteractive();
     this.add.text(132, 380, '►', { fontSize: '22px', fill: '#fff' });
 
@@ -149,7 +152,7 @@ class BasketballMobileGame extends Phaser.Scene {
     btnRight.on('pointerup', () => { this.moveRight = false; });
     btnRight.on('pointerout', () => { this.moveRight = false; });
 
-    // 3. Pulsante di Tiro (Tieni premuto per caricare)
+    // Tasto TIRO
     const btnShoot = this.add.image(710, 380, 'btn_shoot').setInteractive();
     this.add.text(685, 372, 'TIRO', { fontSize: '18px', fill: '#fff', fontStyle: 'bold' });
 
@@ -157,6 +160,11 @@ class BasketballMobileGame extends Phaser.Scene {
       if (this.isHoldingBall) {
         this.isCharging = true;
         this.chargePower = this.minPower;
+
+        // --- SALTO DEL GIOCATORE DURANTE IL TIRO ---
+        if (this.player.body.touching.down) {
+          this.player.setVelocityY(-250); // Piccolo salto verso l'alto
+        }
       }
     });
 
@@ -166,7 +174,7 @@ class BasketballMobileGame extends Phaser.Scene {
       }
     });
 
-    // 4. Pulsante Reset Palla
+    // Tasto Reset Palla
     const btnReset = this.add.image(750, 40, 'btn_reset').setInteractive();
     this.add.text(738, 30, '↺', { fontSize: '24px', fill: '#fff', fontStyle: 'bold' });
 
@@ -176,7 +184,7 @@ class BasketballMobileGame extends Phaser.Scene {
   }
 
   update() {
-    // Movimento del Giocatore tramite Touch
+    // Movimento Orizzontale Giocatore
     if (!this.isCharging) {
       if (this.moveLeft) {
         this.player.setVelocityX(-160);
@@ -189,7 +197,7 @@ class BasketballMobileGame extends Phaser.Scene {
       this.player.setVelocityX(0);
     }
 
-    // Gestione Palla e Caricamento Tiro
+    // Palla attaccata alle mani del giocatore
     if (this.isHoldingBall) {
       this.ball.setPosition(this.player.x + 15, this.player.y - 10);
       this.ball.body.setVelocity(0, 0);
@@ -227,6 +235,7 @@ class BasketballMobileGame extends Phaser.Scene {
   shootBall() {
     this.isHoldingBall = false;
     this.isCharging = false;
+    this.canScore = true; // Abilita il conteggio punti per questo tiro
     this.trajectoryGraphics.clear();
 
     this.ball.body.setAllowGravity(true);
@@ -240,20 +249,38 @@ class BasketballMobileGame extends Phaser.Scene {
   resetBall() {
     this.isHoldingBall = true;
     this.isCharging = false;
+    this.canScore = true;
     this.trajectoryGraphics.clear();
     this.ball.setAngularVelocity(0);
   }
 
   onScore(ball, zone) {
-    if (!this.isHoldingBall && ball.body.velocity.y > 0) {
+    // Rileva il canestro solo se la palla sta scendendo (velocità Y > 0) e non è già stato contato
+    if (!this.isHoldingBall && this.canScore && ball.body.velocity.y > 0) {
       this.score += 2;
+      this.canScore = false; // Evita doppi punti
       this.scoreText.setText('Punti: ' + this.score);
-      this.resetBall();
+
+      // Feedback visivo a schermo
+      this.feedbackText.setText('CANESTRO! +2');
+      this.feedbackText.setScale(1);
+      this.feedbackText.setAlpha(1);
+
+      // Animazione testo di feedback
+      this.tweens.add({
+        targets: this.feedbackText,
+        y: 140,
+        alpha: 0,
+        duration: 1200,
+        ease: 'Power2',
+        onComplete: () => {
+          this.feedbackText.setPosition(400, 180);
+        }
+      });
     }
   }
 }
 
-// Configurazione Responsive per Mobile
 const config = {
   type: Phaser.AUTO,
   scale: {
@@ -277,4 +304,3 @@ const game = new Phaser.Game(config);
 
 </body>
 </html>
-
