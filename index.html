@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Basket Top-Down - Meter 2K & Giocatori Dettagliati</title>
+  <title>Basket Top-Down - Arena Pro 2K</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
   <style>
     * {
@@ -17,7 +17,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000;
+      background: #111;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -39,80 +39,69 @@ class Basketball2KStyle extends Phaser.Scene {
   createGraphicAssets() {
     let g = this.add.graphics();
 
-    // --- GIOCATORE ATTACCANTE (Azzurro / Bianco) ---
-    // Gambe
+    // --- GIOCATORE ATTACCANTE ---
     g.fillStyle(0xd1ccc0, 1);
     g.fillRect(10, 32, 6, 12);
     g.fillRect(20, 32, 6, 12);
-    // Pantaloncini
     g.fillStyle(0x2980b9, 1);
     g.fillRect(8, 22, 20, 12);
-    // Busto / Canotta
     g.fillStyle(0x3498db, 1);
     g.fillRect(8, 10, 20, 14);
-    // Braccia
     g.fillStyle(0xd1ccc0, 1);
     g.fillRect(2, 10, 6, 16);
     g.fillRect(28, 10, 6, 16);
-    // Testa
     g.fillStyle(0xf5cd79, 1);
     g.fillCircle(18, 8, 7);
     g.generateTexture('player', 36, 46);
     g.clear();
 
-    // --- DIFENSORE IA (Rosso / Nero) ---
-    // Gambe
+    // --- DIFENSORE IA ---
     g.fillStyle(0xd1ccc0, 1);
     g.fillRect(10, 32, 6, 12);
     g.fillRect(20, 32, 6, 12);
-    // Pantaloncini
     g.fillStyle(0x900c3f, 1);
     g.fillRect(8, 22, 20, 12);
-    // Busto / Canotta
     g.fillStyle(0xc0392b, 1);
     g.fillRect(8, 10, 20, 14);
-    // Braccia
     g.fillStyle(0xd1ccc0, 1);
     g.fillRect(2, 10, 6, 16);
     g.fillRect(28, 10, 6, 16);
-    // Testa
     g.fillStyle(0xe58e26, 1);
     g.fillCircle(18, 8, 7);
     g.generateTexture('defender', 36, 46);
     g.clear();
 
-    // --- PALLONE ---
-    g.fillStyle(0xe67e22, 1);
+    // --- PALLONE CON SHADOW ---
+    g.fillStyle(0xd35400, 1);
     g.fillCircle(10, 10, 10);
-    g.lineStyle(1, 0x000000, 0.6);
+    g.lineStyle(1.5, 0x111111, 0.8);
     g.strokeCircle(10, 10, 10);
     g.lineBetween(0, 10, 20, 10);
+    g.lineBetween(10, 0, 10, 20);
     g.generateTexture('ball', 20, 20);
     g.clear();
 
-    // D-Pad Base & Leva
-    g.fillStyle(0xffffff, 0.2);
+    // CONTROLLI TOUCH
+    g.fillStyle(0xffffff, 0.15);
     g.fillCircle(60, 60, 60);
-    g.lineStyle(2, 0xffffff, 0.5);
+    g.lineStyle(2, 0xffffff, 0.4);
     g.strokeCircle(60, 60, 60);
     g.generateTexture('dpad_base', 120, 120);
     g.clear();
 
-    g.fillStyle(0x3498db, 0.8);
+    g.fillStyle(0x3498db, 0.9);
     g.fillCircle(25, 25, 25);
     g.generateTexture('dpad_stick', 50, 50);
     g.clear();
 
-    // Tasto Tiro
-    g.fillStyle(0x2ecc71, 0.8);
+    g.fillStyle(0x2ecc71, 0.9);
     g.fillCircle(38, 38, 38);
     g.generateTexture('btn_shoot', 76, 76);
     g.clear();
 
-    // Tasto Reset
-    g.fillStyle(0xf1c40f, 0.8);
-    g.fillCircle(20, 20, 20);
-    g.generateTexture('btn_reset', 40, 40);
+    g.fillStyle(0xe74c3c, 0.8);
+    g.fillCircle(18, 18, 18);
+    g.generateTexture('btn_reset', 36, 36);
     g.destroy();
   }
 
@@ -120,27 +109,29 @@ class Basketball2KStyle extends Phaser.Scene {
     this.input.addPointer(2);
     this.physics.world.setBounds(0, 0, 450, 800);
 
-    // Campo da gioco
-    this.drawCourt();
+    // 1. DIBAGNO E DISEGNO DEL CAMPO DETTAGLIATO
+    this.drawDetailedCourt();
 
-    // Canestro
+    // 2. DISEGNO CANESTRO DETTAGLIATO
     this.hoopX = 225;
-    this.hoopY = 80;
-    this.scoreZone = this.add.zone(this.hoopX, this.hoopY, 24, 24);
+    this.hoopY = 110;
+    this.drawProHoop();
+
+    this.scoreZone = this.add.zone(this.hoopX, this.hoopY, 22, 22);
     this.physics.add.existing(this.scoreZone, true);
 
     // Giocatori
-    this.player = this.physics.add.sprite(225, 600, 'player');
+    this.player = this.physics.add.sprite(225, 620, 'player');
     this.player.setCollideWorldBounds(true);
 
-    this.defender = this.physics.add.sprite(225, 300, 'defender');
+    this.defender = this.physics.add.sprite(225, 320, 'defender');
     this.defender.setCollideWorldBounds(true);
 
     // Pallone
-    this.ball = this.physics.add.sprite(225, 610, 'ball');
+    this.ball = this.physics.add.sprite(225, 630, 'ball');
     this.ball.setCollideWorldBounds(true);
 
-    // Grafica Shot Meter 2K (Semicerchio)
+    // Shot Meter 2K
     this.meterGraphics = this.add.graphics();
 
     // Stato Gioco
@@ -149,17 +140,16 @@ class Basketball2KStyle extends Phaser.Scene {
     this.isDunking = false;
     this.canScore = true;
 
-    // Shot Meter Variables (NBA 2K)
     this.isCharging = false;
-    this.meterProgress = 0; // da 0 a 100
-    this.greenZone = 75;    // Punto di rilascio ideale
+    this.meterProgress = 0;
+    this.greenZone = 75;
 
-    // UI & Timer
+    // UI - TABELLONE DIGITAL LED (TOP CENTER)
     this.score = 0;
     this.shotClockTime = 24;
-    this.scoreText = this.add.text(15, 15, 'Punti: 0', { fontSize: '18px', fill: '#fff', fontStyle: 'bold' });
-    this.shotClockText = this.add.text(350, 15, '24s: 24', { fontSize: '18px', fill: '#f1c40f', fontStyle: 'bold' });
-    this.feedbackText = this.add.text(225, 380, '', { fontSize: '26px', fill: '#f1c40f', fontStyle: 'bold' }).setOrigin(0.5);
+    this.createLEDBoard();
+
+    this.feedbackText = this.add.text(225, 410, '', { fontSize: '24px', fill: '#f1c40f', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5);
 
     // Timer dei 24s
     this.shotClockEvent = this.time.addEvent({
@@ -173,53 +163,121 @@ class Basketball2KStyle extends Phaser.Scene {
     this.physics.add.overlap(this.ball, this.scoreZone, this.onScore, null, this);
     this.physics.add.overlap(this.ball, this.defender, this.onBallBlocked, null, this);
 
-    // Controlli
     this.joystickVector = { x: 0, y: 0 };
     this.createTouchControls();
   }
 
-  drawCourt() {
+  drawDetailedCourt() {
     let g = this.add.graphics();
 
-    // Parquet
-    g.fillStyle(0xd35400, 1);
-    g.fillRect(10, 50, 430, 740);
+    // Sfondo e bordo campo scuro
+    g.fillStyle(0x111111, 1);
+    g.fillRect(0, 0, 450, 800);
 
-    // Bordo campo
-    g.lineStyle(3, 0xffffff, 0.9);
-    g.strokeRect(10, 50, 430, 740);
+    const bx = 15, by = 60, bw = 420, bh = 720;
+
+    // Texture Parquet (Listelli sfumati)
+    for (let i = 0; i < bh; i += 12) {
+      let color = (Math.floor(i / 12) % 2 === 0) ? 0xdf9850 : 0xd48b43;
+      g.fillStyle(color, 1);
+      g.fillRect(bx, by + i, bw, 12);
+    }
+
+    // Linee Esterne Bordo Campo
+    g.lineStyle(4, 0xffffff, 1);
+    g.strokeRect(bx, by, bw, bh);
+
+    // Area Pitturato (Verde/Blu Stile NBA Pro)
+    g.fillStyle(0x1b4f72, 0.9);
+    g.fillRect(bx + 120, by, 180, 200);
+    g.lineStyle(3, 0xffffff, 1);
+    g.strokeRect(bx + 120, by, 180, 200);
+
+    // Semi-cerchio no Sfondamento (Restricted Area)
+    g.beginPath();
+    g.arc(225, by + 50, 45, 0, Math.PI, false);
+    g.strokePath();
+
+    // Lunetta e Cerchio Tiro Libero
+    g.beginPath();
+    g.arc(225, by + 200, 60, 0, Math.PI, false);
+    g.strokePath();
+
+    g.lineStyle(2, 0xffffff, 0.6);
+    g.beginPath();
+    g.arc(225, by + 200, 60, Math.PI, 2 * Math.PI, false);
+    g.strokePath();
 
     // Arco da 3 Punti
+    g.lineStyle(3, 0xffffff, 1);
     g.beginPath();
-    g.arc(225, 80, 210, 0.15 * Math.PI, 0.85 * Math.PI, false);
+    g.arc(225, by + 50, 220, 0.14 * Math.PI, 0.86 * Math.PI, false);
     g.strokePath();
 
-    // Pitturato / Area
-    g.fillStyle(0xc0392b, 0.8);
-    g.fillRect(155, 50, 140, 180);
-    g.strokeRect(155, 50, 140, 180);
+    // Linee laterali angolo 3pt
+    g.lineBetween(bx + 15, by, bx + 15, by + 80);
+    g.lineBetween(bx + bw - 15, by, bx + bw - 15, by + 80);
+  }
 
-    // Lunetta Tiro Libero
-    g.beginPath();
-    g.arc(225, 230, 70, 0, Math.PI, false);
-    g.strokePath();
+  drawProHoop() {
+    let g = this.add.graphics();
 
-    g.lineStyle(2, 0xffffff, 0.5);
-    g.beginPath();
-    g.arc(225, 230, 70, Math.PI, 2 * Math.PI, false);
-    g.strokePath();
+    // Base supporto posteriore canestro
+    g.fillStyle(0x2c3e50, 1);
+    g.fillRect(195, 60, 60, 25);
+    g.lineStyle(2, 0x000000, 1);
+    g.strokeRect(195, 60, 60, 25);
 
-    // Tabellone e Canestro
-    g.lineStyle(4, 0xffffff, 1);
-    g.lineBetween(185, 60, 265, 60);
+    // Tabellone trasparente con bordo bianco
+    g.fillStyle(0xffffff, 0.3);
+    g.fillRect(165, 85, 120, 10);
+    g.lineStyle(3, 0xffffff, 1);
+    g.strokeRect(165, 85, 120, 10);
 
-    g.lineStyle(3, 0xe67e22, 1);
-    g.strokeCircle(225, 75, 14);
+    // Rettangolo interno di mira sul tabellone
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeRect(205, 85, 40, 4);
+
+    // Supporti metallici del ferro
+    g.lineStyle(3, 0x7f8c8d, 1);
+    g.lineBetween(215, 95, 215, 100);
+    g.lineBetween(235, 95, 235, 100);
+
+    // Retina (Linee a incrocio trasparente)
+    g.lineStyle(1, 0xffffff, 0.6);
+    g.strokeCircle(225, 110, 14);
+    g.strokeCircle(225, 110, 8);
+
+    // Ferro arancione brillante
+    g.lineStyle(4, 0xe67e22, 1);
+    g.strokeCircle(225, 110, 15);
+  }
+
+  createLEDBoard() {
+    // Sfondo Tabellone Digitale
+    let bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRoundedRect(125, 8, 200, 44, 8);
+    bg.lineStyle(2, 0x333333, 1);
+    bg.strokeRoundedRect(125, 8, 200, 44, 8);
+
+    this.scoreLedText = this.add.text(140, 20, 'PTS: 0', {
+      fontFamily: 'Courier, monospace',
+      fontSize: '18px',
+      fill: '#2ecc71',
+      fontStyle: 'bold'
+    });
+
+    this.shotClockLedText = this.add.text(245, 18, '24', {
+      fontFamily: 'Courier, monospace',
+      fontSize: '24px',
+      fill: '#e74c3c',
+      fontStyle: 'bold'
+    });
   }
 
   createTouchControls() {
-    // Joystick 360°
-    const jx = 85, jy = 690;
+    const jx = 85, jy = 710;
     const dpadBase = this.add.image(jx, jy, 'dpad_base').setInteractive();
     const dpadStick = this.add.image(jx, jy, 'dpad_stick');
 
@@ -255,17 +313,16 @@ class Basketball2KStyle extends Phaser.Scene {
     this.input.on('pointerup', resetJoystick);
 
     // Tasto Tiro
-    const btnShoot = this.add.image(360, 690, 'btn_shoot').setInteractive();
-    this.add.text(338, 682, 'TIRO', { fontSize: '16px', fill: '#fff', fontStyle: 'bold' });
+    const btnShoot = this.add.image(360, 710, 'btn_shoot').setInteractive();
+    this.add.text(338, 702, 'TIRO', { fontSize: '16px', fill: '#fff', fontStyle: 'bold' });
 
     btnShoot.on('pointerdown', () => {
       if (this.isHoldingBall && !this.isShooting && !this.isDunking) {
         const distToHoop = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.hoopX, this.hoopY);
 
-        if (distToHoop < 180) {
+        if (distToHoop < 170) {
           this.executeDunk();
         } else {
-          // Inizia il caricamento stile NBA 2K
           this.isCharging = true;
           this.meterProgress = 0;
         }
@@ -279,17 +336,16 @@ class Basketball2KStyle extends Phaser.Scene {
     });
 
     // Reset Tasto
-    const btnReset = this.add.image(400, 30, 'btn_reset').setInteractive();
-    this.add.text(393, 20, '↺', { fontSize: '20px', fill: '#fff', fontStyle: 'bold' });
+    const btnReset = this.add.image(410, 30, 'btn_reset').setInteractive();
+    this.add.text(404, 21, '↺', { fontSize: '18px', fill: '#fff', fontStyle: 'bold' });
     btnReset.on('pointerdown', () => { this.resetBall(); });
   }
 
   updateShotClock() {
     if (this.shotClockTime > 0) {
       this.shotClockTime--;
-      this.shotClockText.setText('24s: ' + this.shotClockTime);
-      if (this.shotClockTime <= 5) this.shotClockText.setFill('#e74c3c');
-      else this.shotClockText.setFill('#f1c40f');
+      let formatted = this.shotClockTime < 10 ? '0' + this.shotClockTime : this.shotClockTime;
+      this.shotClockLedText.setText(formatted);
     } else {
       this.showFeedback('INFRAZIONE 24 SECONDI!', '#e74c3c');
       this.resetBall();
@@ -298,29 +354,25 @@ class Basketball2KStyle extends Phaser.Scene {
 
   resetShotClock() {
     this.shotClockTime = 24;
-    this.shotClockText.setText('24s: 24');
-    this.shotClockText.setFill('#f1c40f');
+    this.shotClockLedText.setText('24');
   }
 
   update() {
-    // Movimento Giocatore
-    const speed = 175;
+    const speed = 180;
     if (!this.isCharging && !this.isDunking && !this.isShooting) {
       this.player.setVelocity(this.joystickVector.x * speed, this.joystickVector.y * speed);
     } else {
       this.player.setVelocity(0, 0);
     }
 
-    // Aggiornamento Shot Meter 2K
     if (this.isCharging) {
-      this.meterProgress += 2.2;
+      this.meterProgress += 2.3;
       if (this.meterProgress > 100) this.meterProgress = 100;
       this.draw2KShotMeter();
     } else {
       this.meterGraphics.clear();
     }
 
-    // Pallone in mano
     if (this.isHoldingBall && !this.isDunking) {
       this.ball.setPosition(this.player.x, this.player.y - 10);
     }
@@ -332,23 +384,20 @@ class Basketball2KStyle extends Phaser.Scene {
     this.meterGraphics.clear();
 
     const px = this.player.x;
-    const py = this.player.y - 35;
+    const py = this.player.y - 38;
     const radius = 28;
 
-    // Arco di Sfondo (Grigio)
-    this.meterGraphics.lineStyle(6, 0x333333, 0.8);
+    this.meterGraphics.lineStyle(6, 0x222222, 0.8);
     this.meterGraphics.beginPath();
     this.meterGraphics.arc(px, py, radius, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
     this.meterGraphics.strokePath();
 
-    // Tattino Verde (Release Perfetto)
     const greenAngle = 180 + (this.greenZone / 100) * 180;
     this.meterGraphics.lineStyle(8, 0x2ecc71, 1);
     this.meterGraphics.beginPath();
     this.meterGraphics.arc(px, py, radius, Phaser.Math.DegToRad(greenAngle - 4), Phaser.Math.DegToRad(greenAngle + 4), false);
     this.meterGraphics.strokePath();
 
-    // Indicatore di Caricamento (Giallo/Bianco)
     const currentAngle = 180 + (this.meterProgress / 100) * 180;
     this.meterGraphics.lineStyle(6, 0xf1c40f, 1);
     this.meterGraphics.beginPath();
@@ -363,7 +412,7 @@ class Basketball2KStyle extends Phaser.Scene {
     const targetY = Phaser.Math.Linear(this.player.y, this.hoopY, 0.45);
 
     if (Phaser.Math.Distance.Between(this.defender.x, this.defender.y, targetX, targetY) > 10) {
-      this.physics.moveTo(this.defender, targetX, targetY, 130);
+      this.physics.moveTo(this.defender, targetX, targetY, 135);
     } else {
       this.defender.setVelocity(0, 0);
     }
@@ -375,8 +424,8 @@ class Basketball2KStyle extends Phaser.Scene {
 
     this.tweens.add({
       targets: [this.player, this.ball],
-      scaleX: 1.5,
-      scaleY: 1.5,
+      scaleX: 1.4,
+      scaleY: 1.4,
       duration: 350,
       yoyo: true,
       ease: 'Quad.easeOut'
@@ -385,7 +434,7 @@ class Basketball2KStyle extends Phaser.Scene {
     this.tweens.add({
       targets: this.player,
       x: this.hoopX,
-      y: this.hoopY + 25,
+      y: this.hoopY + 28,
       duration: 500,
       ease: 'Power2.easeOut',
       onUpdate: () => {
@@ -395,7 +444,7 @@ class Basketball2KStyle extends Phaser.Scene {
         this.isDunking = false;
         this.ball.setPosition(this.hoopX, this.hoopY);
         this.score += 2;
-        this.scoreText.setText('Punti: ' + this.score);
+        this.scoreLedText.setText('PTS: ' + this.score);
         this.showFeedback('SCHIACCIATA! +2', '#2ecc71');
         this.resetShotClock();
 
@@ -410,13 +459,12 @@ class Basketball2KStyle extends Phaser.Scene {
     this.isShooting = true;
     this.canScore = true;
 
-    // Calcolo Rilascio 2K (Green Release)
     const diff = Math.abs(this.meterProgress - this.greenZone);
     const isGreen = diff <= 4;
     const isSlightly = diff <= 15;
 
     const distToHoop = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.hoopX, this.hoopY);
-    const is3Pointer = distToHoop > 210;
+    const is3Pointer = distToHoop > 220;
 
     let targetX = this.hoopX;
     let targetY = this.hoopY;
@@ -428,7 +476,6 @@ class Basketball2KStyle extends Phaser.Scene {
 
     const duration = 850;
 
-    // Animazione Parabola Tiro
     this.tweens.add({
       targets: this.ball,
       scaleX: 2.0,
@@ -449,16 +496,16 @@ class Basketball2KStyle extends Phaser.Scene {
         if (isGreen || isSlightly) {
           const pts = is3Pointer ? 3 : 2;
           this.score += pts;
-          this.scoreText.setText('Punti: ' + this.score);
+          this.scoreLedText.setText('PTS: ' + this.score);
 
           if (isGreen) {
-            this.showFeedback('PERFECT RELEASE! GREEN! ' + (is3Pointer ? '+3' : '+2'), '#2ecc71');
+            this.showFeedback('GREEN RELEASE! ' + (is3Pointer ? '+3' : '+2'), '#2ecc71');
           } else {
-            this.showFeedback(is3Pointer ? 'TIRO DA 3 PUNTI! +3' : 'CANESTRO! +2', '#f1c40f');
+            this.showFeedback(is3Pointer ? 'TRE PUNTI! +3' : 'CANESTRO! +2', '#f1c40f');
           }
           this.resetShotClock();
         } else {
-          this.showFeedback('RELEASE SLOW/FAST! ERRORE', '#e74c3c');
+          this.showFeedback('ERRORE DI TIMING!', '#e74c3c');
         }
         this.time.delayedCall(1000, () => { this.resetBall(); });
       }
@@ -471,7 +518,7 @@ class Basketball2KStyle extends Phaser.Scene {
     this.isDunking = false;
     this.isShooting = false;
     this.canScore = true;
-    this.player.setPosition(225, 600);
+    this.player.setPosition(225, 620);
     this.player.setScale(1);
     this.ball.setScale(1);
     this.resetShotClock();
@@ -480,7 +527,7 @@ class Basketball2KStyle extends Phaser.Scene {
   onBallBlocked() {
     if (!this.isHoldingBall && this.canScore && !this.isDunking) {
       this.canScore = false;
-      this.showFeedback('STOPPATA DAL DIFENSORE!', '#e74c3c');
+      this.showFeedback('STOPPATO!', '#e74c3c');
     }
   }
 
