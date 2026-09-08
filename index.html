@@ -1,1 +1,280 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Basket Mobile - Phaser 3</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+class BasketballMobileGame extends Phaser.Scene {
+  constructor() {
+    super('BasketballMobileGame');
+  }
+
+  preload() {
+    this.createGraphicAssets();
+  }
+
+  createGraphicAssets() {
+    let g = this.add.graphics();
+
+    // Giocatore (Azzurro)
+    g.fillStyle(0x3498db, 1);
+    g.fillRect(0, 0, 32, 64);
+    g.generateTexture('player', 32, 64);
+    g.clear();
+
+    // Pallone (Arancione)
+    g.fillStyle(0xe67e22, 1);
+    g.fillCircle(12, 12, 12);
+    g.generateTexture('ball', 24, 24);
+    g.clear();
+
+    // Tabellone e Anello
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(0, 0, 8, 120);
+    g.fillStyle(0xe74c3c, 1);
+    g.fillRect(-25, 40, 25, 6);
+    g.generateTexture('hoop', 33, 120);
+    g.clear();
+
+    // Pulsante D-Pad (Sinistra/Destra)
+    g.fillStyle(0xffffff, 0.3);
+    g.fillCircle(30, 30, 30);
+    g.generateTexture('btn_arrow', 60, 60);
+    g.clear();
+
+    // Pulsante Tiro
+    g.fillStyle(0xe74c3c, 0.6);
+    g.fillCircle(40, 40, 40);
+    g.generateTexture('btn_shoot', 80, 80);
+    g.clear();
+
+    // Pulsante Reset
+    g.fillStyle(0xf1c40f, 0.6);
+    g.fillCircle(25, 25, 25);
+    g.generateTexture('btn_reset', 50, 50);
+    g.destroy();
+  }
+
+  create() {
+    // Abilita multi-touch
+    this.input.addPointer(2);
+
+    // Mondo e Fisica
+    this.physics.world.setBounds(0, 0, 800, 450);
+    this.physics.world.gravity.y = 800;
+
+    // Campo da gioco
+    const ground = this.add.rectangle(400, 440, 800, 20, 0x7f8c8d);
+    this.physics.add.existing(ground, true);
+
+    // Canestro e Zona Punti
+    this.hoop = this.physics.add.staticImage(750, 220, 'hoop');
+    this.scoreZone = this.add.zone(735, 265, 20, 5);
+    this.physics.add.existing(this.scoreZone, true);
+
+    // Giocatore
+    this.player = this.physics.add.sprite(150, 350, 'player');
+    this.player.setCollideWorldBounds(true);
+    this.physics.add.collider(this.player, ground);
+
+    // Pallone
+    this.ball = this.physics.add.sprite(150, 330, 'ball');
+    this.ball.setBounce(0.6);
+    this.ball.setFriction(0.1);
+    this.ball.setCollideWorldBounds(true);
+    this.physics.add.collider(this.ball, ground);
+    this.physics.add.collider(this.ball, this.hoop);
+
+    // Stato Tiro
+    this.isHoldingBall = true;
+    this.isCharging = false;
+    this.chargePower = 0;
+    this.maxPower = 700;
+    this.minPower = 200;
+
+    // Traiettoria
+    this.trajectoryGraphics = this.add.graphics();
+
+    // Punteggio
+    this.score = 0;
+    this.scoreText = this.add.text(20, 15, 'Punti: 0', { fontSize: '20px', fill: '#fff', fontStyle: 'bold' });
+
+    this.physics.add.overlap(this.ball, this.scoreZone, this.onScore, null, this);
+
+    // Variabili stato movimento Touch
+    this.moveLeft = false;
+    this.moveRight = false;
+
+    // Aggiunta Controlli Touch a Schermo
+    this.createTouchControls();
+  }
+
+  createTouchControls() {
+    // 1. Freccia Sinistra
+    const btnLeft = this.add.image(60, 390, 'btn_arrow').setInteractive();
+    this.add.text(52, 380, '◄', { fontSize: '22px', fill: '#fff' });
+
+    btnLeft.on('pointerdown', () => { this.moveLeft = true; });
+    btnLeft.on('pointerup', () => { this.moveLeft = false; });
+    btnLeft.on('pointerout', () => { this.moveLeft = false; });
+
+    // 2. Freccia Destra
+    const btnRight = this.add.image(140, 390, 'btn_arrow').setInteractive();
+    this.add.text(132, 380, '►', { fontSize: '22px', fill: '#fff' });
+
+    btnRight.on('pointerdown', () => { this.moveRight = true; });
+    btnRight.on('pointerup', () => { this.moveRight = false; });
+    btnRight.on('pointerout', () => { this.moveRight = false; });
+
+    // 3. Pulsante di Tiro (Tieni premuto per caricare)
+    const btnShoot = this.add.image(710, 380, 'btn_shoot').setInteractive();
+    this.add.text(685, 372, 'TIRO', { fontSize: '18px', fill: '#fff', fontStyle: 'bold' });
+
+    btnShoot.on('pointerdown', () => {
+      if (this.isHoldingBall) {
+        this.isCharging = true;
+        this.chargePower = this.minPower;
+      }
+    });
+
+    btnShoot.on('pointerup', () => {
+      if (this.isHoldingBall && this.isCharging) {
+        this.shootBall();
+      }
+    });
+
+    // 4. Pulsante Reset Palla
+    const btnReset = this.add.image(750, 40, 'btn_reset').setInteractive();
+    this.add.text(738, 30, '↺', { fontSize: '24px', fill: '#fff', fontStyle: 'bold' });
+
+    btnReset.on('pointerdown', () => {
+      this.resetBall();
+    });
+  }
+
+  update() {
+    // Movimento del Giocatore tramite Touch
+    if (!this.isCharging) {
+      if (this.moveLeft) {
+        this.player.setVelocityX(-160);
+      } else if (this.moveRight) {
+        this.player.setVelocityX(160);
+      } else {
+        this.player.setVelocityX(0);
+      }
+    } else {
+      this.player.setVelocityX(0);
+    }
+
+    // Gestione Palla e Caricamento Tiro
+    if (this.isHoldingBall) {
+      this.ball.setPosition(this.player.x + 15, this.player.y - 10);
+      this.ball.body.setVelocity(0, 0);
+      this.ball.body.setAllowGravity(false);
+
+      if (this.isCharging) {
+        this.chargePower = Math.min(this.chargePower + 8, this.maxPower);
+        this.drawTrajectory();
+      }
+    }
+  }
+
+  drawTrajectory() {
+    this.trajectoryGraphics.clear();
+    this.trajectoryGraphics.lineStyle(2, 0x00ff00, 0.8);
+
+    const startX = this.ball.x;
+    const startY = this.ball.y;
+    const vx = this.chargePower * 0.75;
+    const vy = -this.chargePower * 0.95;
+    const gravity = this.physics.world.gravity.y;
+
+    let prevX = startX;
+    let prevY = startY;
+
+    for (let t = 0.05; t < 1.2; t += 0.05) {
+      const x = startX + vx * t;
+      const y = startY + vy * t + 0.5 * gravity * t * t;
+      this.trajectoryGraphics.lineBetween(prevX, prevY, x, y);
+      prevX = x;
+      prevY = y;
+    }
+  }
+
+  shootBall() {
+    this.isHoldingBall = false;
+    this.isCharging = false;
+    this.trajectoryGraphics.clear();
+
+    this.ball.body.setAllowGravity(true);
+    const vx = this.chargePower * 0.75;
+    const vy = -this.chargePower * 0.95;
+
+    this.ball.setVelocity(vx, vy);
+    this.ball.setAngularVelocity(300);
+  }
+
+  resetBall() {
+    this.isHoldingBall = true;
+    this.isCharging = false;
+    this.trajectoryGraphics.clear();
+    this.ball.setAngularVelocity(0);
+  }
+
+  onScore(ball, zone) {
+    if (!this.isHoldingBall && ball.body.velocity.y > 0) {
+      this.score += 2;
+      this.scoreText.setText('Punti: ' + this.score);
+      this.resetBall();
+    }
+  }
+}
+
+// Configurazione Responsive per Mobile
+const config = {
+  type: Phaser.AUTO,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 800,
+    height: 450
+  },
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 800 },
+      debug: false
+    }
+  },
+  scene: BasketballMobileGame
+};
+
+const game = new Phaser.Game(config);
+</script>
+
+</body>
+</html>
 
